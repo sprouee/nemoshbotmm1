@@ -1,0 +1,42 @@
+[
+  {
+    "timestamp": 1761671480.2966082,
+    "targets_count": 2,
+    "confidence_threshold": 0.25,
+    "fps": 0.0,
+    "targets": [
+      {
+        "cx": 239.00390625,
+        "cy": 175.65625,
+        "conf": 0.412841796875,
+        "distance": 1.0537394285202026,
+        "priority": 220.91537475585938,
+        "memory_boost": false
+      },
+      {
+        "cx": 262.03125,
+        "cy": 242.515625,
+        "conf": 0.53515625,
+        "distance": 70.06928253173828,
+        "priority": 208.9913787841797,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761671496.0937562,
+    "targets_count": 1,
+    "confidence_threshold": 0.25,
+    "fps": 1.5821203185266903,
+    "targets": [
+      {
+        "cx": 239.00390625,
+        "cy": 177.71875,
+        "conf": 0.3369140625,
+        "distance": 1.9865307807922363,
+        "priority": 212.99612426757812,
+        "memory_boost": false
+      }
+    ]
+  }
+]

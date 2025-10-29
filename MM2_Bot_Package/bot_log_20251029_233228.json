@@ -1,0 +1,724 @@
+[
+  {
+    "timestamp": 1761773766.199022,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 220.3125,
+        "cy": 109.55966186523438,
+        "conf": 0.16455078125,
+        "distance": 69.29586029052734,
+        "priority": 335.14495849609375,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773766.8561175,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 220.3125,
+        "cy": 109.55966186523438,
+        "conf": 0.16455078125,
+        "distance": 69.29586029052734,
+        "priority": 335.14495849609375,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773767.0674458,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 280.81732177734375,
+        "cy": 75.32452392578125,
+        "conf": 0.28369140625,
+        "distance": 108.63519287109375,
+        "priority": 313.18597412109375,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773767.574587,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 280.81732177734375,
+        "cy": 75.32452392578125,
+        "conf": 0.28369140625,
+        "distance": 108.63519287109375,
+        "priority": 313.18597412109375,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773767.793216,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 316.6544189453125,
+        "cy": 100.14706420898438,
+        "conf": 0.6533203125,
+        "distance": 107.8404769897461,
+        "priority": 361.3820495605469,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773768.3949304,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 316.6544189453125,
+        "cy": 100.14706420898438,
+        "conf": 0.6533203125,
+        "distance": 107.8404769897461,
+        "priority": 361.3820495605469,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773768.572065,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 259.326904296875,
+        "cy": 120.14422607421875,
+        "conf": 0.46484375,
+        "distance": 59.10496520996094,
+        "priority": 374.3824157714844,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773769.097777,
+    "targets_count": 1,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.8720266993540258,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 259.326904296875,
+        "cy": 120.14422607421875,
+        "conf": 0.46484375,
+        "distance": 59.10496520996094,
+        "priority": 374.3824157714844,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773769.264965,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 3.8720266993540258,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 217.5,
+        "cy": 131.61058044433594,
+        "conf": 0.77587890625,
+        "distance": 49.76615905761719,
+        "priority": 295.3863830566406,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773769.828089,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.9455646401956685,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 217.5,
+        "cy": 131.61058044433594,
+        "conf": 0.77587890625,
+        "distance": 49.76615905761719,
+        "priority": 295.3863830566406,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773770.0633032,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.9455646401956685,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 181.4423065185547,
+        "cy": 159.51922607421875,
+        "conf": 0.8291015625,
+        "distance": 60.83271789550781,
+        "priority": 430.081787109375,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773770.5339613,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.9455646401956685,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 181.4423065185547,
+        "cy": 159.51922607421875,
+        "conf": 0.8291015625,
+        "distance": 60.83271789550781,
+        "priority": 430.081787109375,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773789.1946788,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 3.7950472522617744,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 106.19318389892578,
+        "cy": 96.13636779785156,
+        "conf": 0.1710205078125,
+        "distance": 155.8283233642578,
+        "priority": 181.61068725585938,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773789.8418517,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 3.7950472522617744,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 106.19318389892578,
+        "cy": 96.13636779785156,
+        "conf": 0.1710205078125,
+        "distance": 155.8283233642578,
+        "priority": 181.61068725585938,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773790.5979116,
+    "targets_count": 3,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 345.8202819824219,
+        "cy": 244.10154724121094,
+        "conf": 0.277587890625,
+        "distance": 125.8401870727539,
+        "priority": 320.50775146484375,
+        "memory_boost": false
+      },
+      {
+        "cx": 145.89842224121094,
+        "cy": 243.63279724121094,
+        "conf": 0.1688232421875,
+        "distance": 115.8848648071289,
+        "priority": 313.8779296875,
+        "memory_boost": false
+      },
+      {
+        "cx": 145.25389099121094,
+        "cy": 77.25585174560547,
+        "conf": 0.316650390625,
+        "distance": 136.84747314453125,
+        "priority": 303.89483642578125,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773791.1729395,
+    "targets_count": 3,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 345.8202819824219,
+        "cy": 244.10154724121094,
+        "conf": 0.277587890625,
+        "distance": 125.8401870727539,
+        "priority": 320.50775146484375,
+        "memory_boost": false
+      },
+      {
+        "cx": 145.89842224121094,
+        "cy": 243.63279724121094,
+        "conf": 0.1688232421875,
+        "distance": 115.8848648071289,
+        "priority": 313.8779296875,
+        "memory_boost": false
+      },
+      {
+        "cx": 145.25389099121094,
+        "cy": 77.25585174560547,
+        "conf": 0.316650390625,
+        "distance": 136.84747314453125,
+        "priority": 303.89483642578125,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773791.8731139,
+    "targets_count": 3,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 345.2343444824219,
+        "cy": 244.68748474121094,
+        "conf": 0.517578125,
+        "distance": 125.66717529296875,
+        "priority": 344.2570495605469,
+        "memory_boost": true
+      },
+      {
+        "cx": 145.25389099121094,
+        "cy": 244.10154724121094,
+        "conf": 0.2330322265625,
+        "distance": 116.68181610107422,
+        "priority": 319.7260437011719,
+        "memory_boost": false
+      },
+      {
+        "cx": 320.0390319824219,
+        "cy": 244.45310974121094,
+        "conf": 0.1656494140625,
+        "distance": 105.31891632080078,
+        "priority": 317.4471435546875,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773792.3993156,
+    "targets_count": 3,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 345.2343444824219,
+        "cy": 244.68748474121094,
+        "conf": 0.517578125,
+        "distance": 125.66717529296875,
+        "priority": 344.2570495605469,
+        "memory_boost": true
+      },
+      {
+        "cx": 145.25389099121094,
+        "cy": 244.10154724121094,
+        "conf": 0.2330322265625,
+        "distance": 116.68181610107422,
+        "priority": 319.7260437011719,
+        "memory_boost": false
+      },
+      {
+        "cx": 320.0390319824219,
+        "cy": 244.45310974121094,
+        "conf": 0.1656494140625,
+        "distance": 105.31891632080078,
+        "priority": 317.4471435546875,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773792.6003015,
+    "targets_count": 3,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 210.57691955566406,
+        "cy": 108.89422607421875,
+        "conf": 0.541015625,
+        "distance": 73.27279663085938,
+        "priority": 370.16436767578125,
+        "memory_boost": false
+      },
+      {
+        "cx": 104.42308044433594,
+        "cy": 119.89183044433594,
+        "conf": 0.69287109375,
+        "distance": 146.72842407226562,
+        "priority": 360.5903015136719,
+        "memory_boost": false
+      },
+      {
+        "cx": 138.53366088867188,
+        "cy": 107.7043228149414,
+        "conf": 0.66455078125,
+        "distance": 122.30992126464844,
+        "priority": 360.5094909667969,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773793.1323347,
+    "targets_count": 3,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 210.57691955566406,
+        "cy": 108.89422607421875,
+        "conf": 0.541015625,
+        "distance": 73.27279663085938,
+        "priority": 370.16436767578125,
+        "memory_boost": false
+      },
+      {
+        "cx": 104.42308044433594,
+        "cy": 119.89183044433594,
+        "conf": 0.69287109375,
+        "distance": 146.72842407226562,
+        "priority": 360.5903015136719,
+        "memory_boost": false
+      },
+      {
+        "cx": 138.53366088867188,
+        "cy": 107.7043228149414,
+        "conf": 0.66455078125,
+        "distance": 122.30992126464844,
+        "priority": 360.5094909667969,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773793.333406,
+    "targets_count": 2,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 112.39183044433594,
+        "cy": 142.57211303710938,
+        "conf": 0.494140625,
+        "distance": 131.9138641357422,
+        "priority": 359.5921630859375,
+        "memory_boost": false
+      },
+      {
+        "cx": 93.49759674072266,
+        "cy": 272.8125,
+        "conf": 0.3583984375,
+        "distance": 175.60073852539062,
+        "priority": 293.1190490722656,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773793.7842834,
+    "targets_count": 2,
+    "confidence_threshold": 0.16999999999999998,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 112.39183044433594,
+        "cy": 142.57211303710938,
+        "conf": 0.494140625,
+        "distance": 131.9138641357422,
+        "priority": 359.5921630859375,
+        "memory_boost": false
+      },
+      {
+        "cx": 93.49759674072266,
+        "cy": 272.8125,
+        "conf": 0.3583984375,
+        "distance": 175.60073852539062,
+        "priority": 293.1190490722656,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773793.9895127,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 67.83088684082031,
+        "cy": 179.3933868408203,
+        "conf": 0.6806640625,
+        "distance": 172.20254516601562,
+        "priority": 381.373779296875,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773794.631539,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "boost",
+    "targets": [
+      {
+        "cx": 67.83088684082031,
+        "cy": 179.3933868408203,
+        "conf": 0.6806640625,
+        "distance": 172.20254516601562,
+        "priority": 381.373779296875,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773794.8365407,
+    "targets_count": 2,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 112.93269348144531,
+        "cy": 168.02883911132812,
+        "conf": 0.80810546875,
+        "distance": 127.31708526611328,
+        "priority": 408.11590576171875,
+        "memory_boost": true
+      },
+      {
+        "cx": 144.26681518554688,
+        "cy": 181.4423065185547,
+        "conf": 0.345947265625,
+        "distance": 95.88775634765625,
+        "priority": 375.25469970703125,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773795.3561757,
+    "targets_count": 2,
+    "confidence_threshold": 0.22,
+    "fps": 3.725219350356932,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 112.93269348144531,
+        "cy": 168.02883911132812,
+        "conf": 0.80810546875,
+        "distance": 127.31708526611328,
+        "priority": 408.11590576171875,
+        "memory_boost": true
+      },
+      {
+        "cx": 144.26681518554688,
+        "cy": 181.4423065185547,
+        "conf": 0.345947265625,
+        "distance": 95.88775634765625,
+        "priority": 375.25469970703125,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773795.6141744,
+    "targets_count": 2,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 141.09375,
+        "cy": 233.65383911132812,
+        "conf": 0.7431640625,
+        "distance": 114.48323822021484,
+        "priority": 377.2986755371094,
+        "memory_boost": false
+      },
+      {
+        "cx": 285.8653564453125,
+        "cy": 254.92788696289062,
+        "conf": 0.65234375,
+        "distance": 91.28659057617188,
+        "priority": 367.349609375,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773796.132924,
+    "targets_count": 2,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 141.09375,
+        "cy": 233.65383911132812,
+        "conf": 0.7431640625,
+        "distance": 114.48323822021484,
+        "priority": 377.2986755371094,
+        "memory_boost": false
+      },
+      {
+        "cx": 285.8653564453125,
+        "cy": 254.92788696289062,
+        "conf": 0.65234375,
+        "distance": 91.28659057617188,
+        "priority": 367.349609375,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773796.3007953,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 335.9134521484375,
+        "cy": 288.1009521484375,
+        "conf": 0.273681640625,
+        "distance": 147.53309631347656,
+        "priority": 288.4326171875,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773796.7669103,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 335.9134521484375,
+        "cy": 288.1009521484375,
+        "conf": 0.273681640625,
+        "distance": 147.53309631347656,
+        "priority": 288.4326171875,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773797.477112,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 305.2148132324219,
+        "cy": 275.8007507324219,
+        "conf": 0.57861328125,
+        "distance": 119.21896362304688,
+        "priority": 337.5292663574219,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773798.0050275,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 305.2148132324219,
+        "cy": 275.8007507324219,
+        "conf": 0.57861328125,
+        "distance": 119.21896362304688,
+        "priority": 337.5292663574219,
+        "memory_boost": true
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773799.2875266,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 120.49803161621094,
+        "cy": 279.2577819824219,
+        "conf": 0.12213134765625,
+        "distance": 157.9331817626953,
+        "priority": 273.2559814453125,
+        "memory_boost": false
+      }
+    ]
+  },
+  {
+    "timestamp": 1761773799.7661347,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 2.980926862235915,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 120.49803161621094,
+        "cy": 279.2577819824219,
+        "conf": 0.12213134765625,
+        "distance": 157.9331817626953,
+        "priority": 273.2559814453125,
+        "memory_boost": false
+      }
+    ]
+  }
+]

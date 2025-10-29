@@ -1,0 +1,19 @@
+[
+  {
+    "timestamp": 1761694180.1007118,
+    "targets_count": 1,
+    "confidence_threshold": 0.22,
+    "fps": 0.0,
+    "pass": "base",
+    "targets": [
+      {
+        "cx": 52.324214935302734,
+        "cy": 238.65231323242188,
+        "conf": 0.78125,
+        "distance": 197.8572998046875,
+        "priority": 188.87493896484375,
+        "memory_boost": false
+      }
+    ]
+  }
+]

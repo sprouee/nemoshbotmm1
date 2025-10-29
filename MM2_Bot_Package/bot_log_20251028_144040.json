@@ -1,0 +1,9 @@
+[
+  {
+    "timestamp": 1761655261.245001,
+    "targets_count": 1,
+    "confidence_threshold": 0.25,
+    "fps": 0.0,
+    "targets": [
+      {
+        "cx": 

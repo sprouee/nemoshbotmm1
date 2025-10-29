@@ -12,7 +12,9 @@ key = {'up': 'w',
        'right': 'd',
        'jump': 'space',
        'turn_left': 'left',
-       'turn_right': 'right'}
+       'turn_right': 'right',
+       'look_up': 'up',
+       'look_down': 'down'}
 keyTurns = [key['turn_left'], key['turn_right']]
 ahk = AHK()
 
@@ -27,6 +29,16 @@ class Control:
         self.actionPressed.append(action)
         if not self.simulationMode:
             ahk.key_down(key[action], blocking=False)
+
+    def release(self, action):
+        '''release a specific action if it is pressed'''
+        if action in self.actionPressed:
+            if not self.simulationMode:
+                ahk.key_up(key[action], blocking=False)
+            try:
+                self.actionPressed.remove(action)
+            except ValueError:
+                pass
 
     def release_all_keys(self):
         '''Release all keys pressed'''

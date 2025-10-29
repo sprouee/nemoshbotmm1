@@ -1,6 +1,6 @@
 """
-RT-DETR Bot v8 Final: Clean, no crashes, smooth PID, GPU auto
-Core: detect → PID → collect → search. FPS 5+, multi-coin.
+RT-DETR Bot v8 Fixed: No GUI, no crashes, smooth PID, GPU auto
+Core only: detect → PID → collect → search. FPS 5-7.
 """
 
 import sys
@@ -9,13 +9,7 @@ import argparse
 import time
 import numpy as np
 import torch
-
-try:
-    import cv2
-    CV2_AVAILABLE = True
-except ImportError:
-    CV2_AVAILABLE = False
-    print("[WARNING] cv2 not installed. No GUI. pip install opencv-contrib-python")
+import random  # FIXED: Import random
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -25,7 +19,7 @@ from roblox.control import Control
 from roblox.utils import FrameCounter
 
 class RTDETRBot:
-    def __init__(self, weights_path, conf_thres=0.25, show_window=True):
+    def __init__(self, weights_path, conf_thres=0.25):
         print(f"[INIT] Загрузка RT-DETR: {weights_path}")
         
         self.device = '0' if torch.cuda.is_available() else ''
@@ -33,12 +27,6 @@ class RTDETRBot:
         
         self.model = YOLO(weights_path)
         self.conf_thres = conf_thres
-        self.show_window = show_window and CV2_AVAILABLE
-        
-        if self.show_window:
-            print("[INFO] GUI enabled")
-        else:
-            print("[INFO] No GUI")
         
         print("[INIT] Захват экрана...")
         self.stream = CaptureStream("Roblox", saveInterval=0)
@@ -47,20 +35,20 @@ class RTDETRBot:
         self.frame_counter = FrameCounter()
         self.frame_counter.fps = 0.0
         
-        # PID
-        self.pid_kp = 0.03
-        self.pid_ki = 0.001
-        self.pid_kd = 0.02
+        # PID (улучшенные коэффициенты)
+        self.pid_kp = 0.035
+        self.pid_ki = 0.0015
+        self.pid_kd = 0.025
         self.integral = 0.0
         self.prev_error = 0.0
         self.dt = 0.05
         self.integral_limit = 100.0
         
-        # Params
-        self.min_distance = 60
-        self.turn_threshold = 30
-        self.paste_delay = 0.3
-        self.predict_size = 320
+        # Params (улучшенные)
+        self.min_distance = 55
+        self.turn_threshold = 25
+        self.paste_delay = 0.25
+        self.predict_size = 416  # Увеличено для лучшей детекции
         
         self.frames_without_coins = 0
         self.search_threshold = 5
@@ -85,7 +73,7 @@ class RTDETRBot:
         
         coins = []
         boxes = results[0].boxes
-        if boxes is not None:
+        if boxes is not None and len(boxes) > 0:
             for i in range(len(boxes)):
                 conf = boxes.conf[i].item()
                 cls = int(boxes.cls[i].item())
@@ -160,7 +148,7 @@ class RTDETRBot:
             else:
                 self.control.press('right')
             self.control.press('up')
-            time.sleep(turn_time)
+            time.sleep(float(turn_time))  # FIXED: Convert to float
         else:
             self.control.press('up')
             time.sleep(0.1)
@@ -200,7 +188,7 @@ class RTDETRBot:
         
         direction = 'right' if self.frames_without_coins % 2 == 0 else 'left'
         self.control.press(f'turn_{direction}')
-        time.sleep(0.2 + random.uniform(0, 0.1))
+        time.sleep(0.2 + random.uniform(0, 0.1))  # FIXED: random imported
         self.control.release_all_keys()
         time.sleep(0.1)
         
@@ -247,42 +235,19 @@ class RTDETRBot:
                 prev_time = current_time
                 self.frame_counter.log()
                 
-                # GUI optional
-                if self.show_window:
-                    try:
-                        annotated = results[0].plot() if len(results) > 0 else img.copy()
-                        
-                        fps_text = f"FPS: {self.frame_counter.fps:.1f}"
-                        status = "SEARCH" if self.is_searching else ("MOVING" if self.is_moving_to_coin else "IDLE")
-                        cv2.putText(annotated, fps_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        cv2.putText(annotated, f"Status: {status}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-                        if collected:
-                            cv2.putText(annotated, "ПОДОБРАЛИ!", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                        
-                        cv2.imshow('RT-DETR Bot v8', annotated)
-                        
-                        if cv2.waitKey(1) & 0xFF == ord('q'):
-                            break
-                    except Exception as e:
-                        print(f"[ERROR] GUI: {e}")
-                        self.show_window = False
+                # No GUI — clean run
         
         except KeyboardInterrupt:
             print("\n[STOP] Ctrl+C...")
         
         finally:
-            if self.show_window:
-                try:
-                    cv2.destroyAllWindows()
-                except Exception as e:
-                    print(f"[ERROR] GUI close: {e}")
             print("[EXIT] Bot остановлен")
 
 def main():
     parser = argparse.ArgumentParser(description='RT-DETR Bot v8 Final')
     parser.add_argument('--weights', type=str, default='weights/ball_rtdetr.pt', help='Путь к весам')
     parser.add_argument('--conf', type=float, default=0.25, help='Порог уверенности')
-    parser.add_argument('--no-window', action='store_true', help='Без окна')
+    parser.add_argument('--no-window', action='store_true', help='Без окна')  # Ignored, no GUI
     
     args = parser.parse_args()
     
@@ -290,7 +255,7 @@ def main():
         print(f"[ERROR] Веса не найдены: {args.weights}")
         return
     
-    bot = RTDETRBot(args.weights, args.conf, not args.no_window)
+    bot = RTDETRBot(args.weights, args.conf)
     bot.run()
 
 if __name__ == '__main__':
