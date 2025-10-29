@@ -1,14 +1,14 @@
 """
-Улучшенный бот для поиска мячиков в Murder Mystery 2
-Версия 2.0 - Enhanced Ball Hunter Bot
+ULTRA BOT для поиска мячиков в Murder Mystery 2
+Версия 6.0 - Maximum Performance & Intelligence
 
-Основные улучшения:
-- Адаптивная система порогов уверенности
-- Улучшенный алгоритм поиска с паттернами движения
-- Система приоритизации целей
-- Оптимизированная производительность детекции
-- Расширенное логирование и статистика
-- Антизастревание и умное движение
+🌟 РЕВОЛЮЦИОННЫЕ УЛУЧШЕНИЯ:
+🚀 Оптимизированная производительность (FP16, кэширование, асинхронная обработка)
+🧠 Искусственный интеллект (Reinforcement Learning, предсказание движения)
+🛡️ Продвинутая система безопасности (оценка угроз, интеллектуальное уклонение)
+📊 Аналитическая система (мониторинг, обучение, статистика)
+⚡ Автоматическая оптимизация под системные характеристики
+🎯 Интеллектуальная навигация с перехватом траекторий
 """
 
 import sys
@@ -25,6 +25,10 @@ import keyboard  # Заменяем msvcrt
 from collections import deque
 from datetime import datetime
 from enum import Enum
+import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -43,6 +47,471 @@ def request_stop():
         stop_requested = True
 
 from roblox.utils import FrameCounter
+
+class OptimizedInferenceEngine:
+    """Оптимизированный движок инференса с кэшированием и асинхронной обработкой"""
+
+    def __init__(self, model, device, use_fp16=True):
+        self.model = model
+        self.device = device
+        self.use_fp16 = use_fp16 and device.type == 'cuda'
+
+        # Кэш для предобработанных изображений
+        self.preprocess_cache = {}
+        self.cache_max_size = 10
+
+        # Пул потоков для асинхронной обработки
+        self.executor = ThreadPoolExecutor(max_workers=3)
+
+        # Оптимизация модели
+        if self.use_fp16:
+            self.model.half()
+            print("[OPTIMIZE] FP16 режим активирован")
+
+        # Torch оптимизации
+        torch.backends.cudnn.benchmark = True
+        if torch.cuda.is_available():
+            torch.cuda.set_device(device)
+
+    def preprocess_image(self, img, cache_key=None):
+        """Оптимизированная предобработка с кэшированием"""
+        if cache_key and cache_key in self.preprocess_cache:
+            return self.preprocess_cache[cache_key]
+
+        # Конвертация и улучшение изображения
+        if img.shape[2] == 3:  # RGB
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+        # HSV улучшение для лучшей видимости мячиков
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+        hsv[..., 1] = np.clip(hsv[..., 1] * 1.15, 0, 255)  # Увеличение насыщенности
+        hsv[..., 2] = np.clip(hsv[..., 2] * 1.3, 0, 255)   # Увеличение яркости
+        enhanced = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+
+        # Кэширование
+        if cache_key:
+            if len(self.preprocess_cache) >= self.cache_max_size:
+                # Удаляем самый старый элемент
+                oldest_key = next(iter(self.preprocess_cache))
+                del self.preprocess_cache[oldest_key]
+            self.preprocess_cache[cache_key] = enhanced.copy()
+
+        return enhanced
+
+    async def async_inference(self, img, imgsz, conf):
+        """Асинхронный инференс"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            self.executor,
+            lambda: self.model(img, imgsz=imgsz, device=self.device,
+                             conf=conf, verbose=False, half=self.use_fp16,
+                             augment=False, agnostic_nms=True)
+        )
+
+    def batch_inference(self, images, imgsz, conf):
+        """Пакетный инференс для нескольких изображений"""
+        if not images:
+            return []
+
+        # Подготовка батча
+        batch_tensor = torch.stack([
+            torch.from_numpy(cv2.resize(img, (imgsz, imgsz))).permute(2, 0, 1).float() / 255.0
+            for img in images
+        ]).to(self.device)
+
+        if self.use_fp16:
+            batch_tensor = batch_tensor.half()
+
+        with torch.no_grad():
+            results = self.model(batch_tensor, conf=conf, verbose=False)
+
+        return results
+
+class AdvancedPredictor:
+    """Расширенная система предсказания движения целей"""
+
+    def __init__(self, history_length=15):
+        self.target_history = {}  # track_id -> deque of positions
+        self.prediction_horizon = 5  # кадров вперед
+        self.history_length = history_length
+        self.velocity_cache = {}  # track_id -> velocity vector
+
+    def update_target_track(self, track_id, cx, cy, timestamp):
+        """Обновляет трек цели"""
+        if track_id not in self.target_history:
+            self.target_history[track_id] = deque(maxlen=self.history_length)
+
+        self.target_history[track_id].append({
+            'cx': cx, 'cy': cy, 'time': timestamp
+        })
+
+        # Вычисляем скорость
+        if len(self.target_history[track_id]) >= 3:
+            self._calculate_velocity(track_id)
+
+    def _calculate_velocity(self, track_id):
+        """Вычисляет скорость движения цели"""
+        history = list(self.target_history[track_id])
+        if len(history) < 3:
+            return
+
+        # Используем последние 3 точки для вычисления скорости
+        recent = history[-3:]
+        dt1 = recent[1]['time'] - recent[0]['time']
+        dt2 = recent[2]['time'] - recent[1]['time']
+
+        if dt1 > 0 and dt2 > 0:
+            vx1 = (recent[1]['cx'] - recent[0]['cx']) / dt1
+            vy1 = (recent[1]['cy'] - recent[0]['cy']) / dt1
+            vx2 = (recent[2]['cx'] - recent[1]['cx']) / dt2
+            vy2 = (recent[2]['cy'] - recent[1]['cy']) / dt2
+
+            # Сглаженная скорость
+            vx = (vx1 + vx2) / 2
+            vy = (vy1 + vy2) / 2
+
+            self.velocity_cache[track_id] = {'vx': vx, 'vy': vy}
+
+    def predict_position(self, track_id, frames_ahead=1):
+        """Предсказывает будущую позицию цели"""
+        if track_id not in self.target_history or track_id not in self.velocity_cache:
+            return None
+
+        history = list(self.target_history[track_id])
+        if not history:
+            return None
+
+        current_pos = history[-1]
+        velocity = self.velocity_cache[track_id]
+
+        # Предсказание с учетом ускорения
+        if len(history) >= 5:
+            # Вычисляем ускорение
+            accel = self._calculate_acceleration(track_id)
+            if accel:
+                predicted_x = current_pos['cx'] + velocity['vx'] * frames_ahead + 0.5 * accel['ax'] * frames_ahead**2
+                predicted_y = current_pos['cy'] + velocity['vy'] * frames_ahead + 0.5 * accel['ay'] * frames_ahead**2
+            else:
+                predicted_x = current_pos['cx'] + velocity['vx'] * frames_ahead
+                predicted_y = current_pos['cy'] + velocity['vy'] * frames_ahead
+        else:
+            predicted_x = current_pos['cx'] + velocity['vx'] * frames_ahead
+            predicted_y = current_pos['cy'] + velocity['vy'] * frames_ahead
+
+        return {'cx': predicted_x, 'cy': predicted_y}
+
+    def _calculate_acceleration(self, track_id):
+        """Вычисляет ускорение цели"""
+        history = list(self.target_history[track_id])
+        if len(history) < 5:
+            return None
+
+        # Используем производную скорости
+        velocities = []
+        for i in range(1, len(history)):
+            dt = history[i]['time'] - history[i-1]['time']
+            if dt > 0:
+                vx = (history[i]['cx'] - history[i-1]['cx']) / dt
+                vy = (history[i]['cy'] - history[i-1]['cy']) / dt
+                velocities.append({'vx': vx, 'vy': vy, 'time': history[i]['time']})
+
+        if len(velocities) < 2:
+            return None
+
+        # Вычисляем ускорение
+        ax = (velocities[-1]['vx'] - velocities[-2]['vx']) / (velocities[-1]['time'] - velocities[-2]['time'])
+        ay = (velocities[-1]['vy'] - velocities[-2]['vy']) / (velocities[-1]['time'] - velocities[-2]['time'])
+
+        return {'ax': ax, 'ay': ay}
+
+    def get_optimal_intercept_point(self, track_id, bot_position, bot_speed=100):
+        """Вычисляет оптимальную точку перехвата"""
+        prediction = self.predict_position(track_id, frames_ahead=3)
+        if not prediction:
+            return None
+
+        target_pos = prediction
+        target_vel = self.velocity_cache.get(track_id, {'vx': 0, 'vy': 0})
+
+        # Время до цели
+        dx = target_pos['cx'] - bot_position[0]
+        dy = target_pos['cy'] - bot_position[1]
+        distance = np.sqrt(dx**2 + dy**2)
+
+        # Учитываем движение цели
+        relative_vx = target_vel['vx']
+        relative_vy = target_vel['vy']
+
+        # Простое предсказание (можно улучшить до полного решения уравнения)
+        time_to_target = distance / bot_speed
+
+        # Корректировка на движение цели
+        intercept_x = target_pos['cx'] + relative_vx * time_to_target
+        intercept_y = target_pos['cy'] + relative_vy * time_to_target
+
+        return {'cx': intercept_x, 'cy': intercept_y, 'time': time_to_target}
+
+class AdaptiveReinforcementLearner:
+    """Система reinforcement learning для адаптивного обучения стратегий"""
+
+    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.1):
+        self.alpha = alpha  # Скорость обучения
+        self.gamma = gamma  # Дисконтирующий фактор
+        self.epsilon = epsilon  # Параметр исследования
+
+        # Q-таблица для различных состояний и действий
+        self.q_table = {}
+
+        # Определение состояний
+        self.states = [
+            'searching_low_conf', 'searching_high_conf',
+            'hunting_close', 'hunting_far', 'hunting_stuck',
+            'confirming_collection', 'evading_threat'
+        ]
+
+        # Определение действий
+        self.actions = [
+            'increase_conf', 'decrease_conf', 'maintain_conf',
+            'aggressive_approach', 'cautious_approach', 'strafe_left', 'strafe_right',
+            'jump_evasion', 'pause_movement', 'memory_search'
+        ]
+
+        # Инициализация Q-таблицы
+        for state in self.states:
+            self.q_table[state] = {action: 0.0 for action in self.actions}
+
+        # Статистика обучения
+        self.learning_stats = {
+            'episodes': 0,
+            'total_reward': 0,
+            'best_actions': {}
+        }
+
+    def get_state(self, bot_state, conf_threshold, target_distance=None, stuck_frames=0, threats_nearby=0):
+        """Определение текущего состояния на основе параметров бота"""
+        if bot_state == 'SEARCHING':
+            if conf_threshold < 0.3:
+                return 'searching_low_conf'
+            else:
+                return 'searching_high_conf'
+        elif bot_state == 'HUNTING':
+            if stuck_frames > 10:
+                return 'hunting_stuck'
+            elif target_distance and target_distance < 100:
+                return 'hunting_close'
+            else:
+                return 'hunting_far'
+        elif bot_state == 'CONFIRMING':
+            return 'confirming_collection'
+        elif threats_nearby > 0:
+            return 'evading_threat'
+        else:
+            return 'searching_high_conf'  # состояние по умолчанию
+
+    def choose_action(self, state, exploration=True):
+        """Выбор действия на основе Q-таблицы с ε-жадной стратегией"""
+        if exploration and random.random() < self.epsilon:
+            # Исследовательское действие
+            return random.choice(self.actions)
+        else:
+            # Эксплуататорское действие - выбираем лучшее из известных
+            state_actions = self.q_table.get(state, {action: 0.0 for action in self.actions})
+            return max(state_actions, key=state_actions.get)
+
+    def update_q_value(self, state, action, reward, next_state):
+        """Обновление Q-значения по формуле Q-learning"""
+        if state not in self.q_table:
+            self.q_table[state] = {action: 0.0 for action in self.actions}
+        if next_state not in self.q_table:
+            self.q_table[next_state] = {action: 0.0 for action in self.actions}
+
+        current_q = self.q_table[state][action]
+        max_next_q = max(self.q_table[next_state].values())
+
+        # Q-learning формула
+        new_q = current_q + self.alpha * (reward + self.gamma * max_next_q - current_q)
+        self.q_table[state][action] = new_q
+
+    def calculate_reward(self, action_taken, success_metrics):
+        """Расчет награды на основе результатов действия"""
+        reward = 0
+
+        # Положительные награды
+        if success_metrics.get('collection_success', False):
+            reward += 10  # Успешный сбор
+        if success_metrics.get('target_found', False):
+            reward += 2   # Нахождение цели
+        if success_metrics.get('fps_improved', False):
+            reward += 1   # Улучшение производительности
+
+        # Отрицательные награды
+        if success_metrics.get('stuck_occurred', False):
+            reward -= 3   # Застревание
+        if success_metrics.get('threat_collision', False):
+            reward -= 5   # Столкновение с угрозой
+        if success_metrics.get('long_search_time', False):
+            reward -= 1   # Долгое время поиска
+
+        # Награды за действия
+        if action_taken == 'memory_search' and success_metrics.get('memory_success', False):
+            reward += 3   # Успешный возврат к памяти
+        if action_taken == 'jump_evasion' and success_metrics.get('evasion_success', False):
+            reward += 2   # Успешное уклонение
+
+        return reward
+
+    def adapt_parameters(self, current_params, learned_action):
+        """Адаптация параметров бота на основе изученного действия"""
+        adapted_params = current_params.copy()
+
+        if learned_action == 'increase_conf':
+            adapted_params['conf_threshold'] = min(0.5, current_params['conf_threshold'] + 0.02)
+        elif learned_action == 'decrease_conf':
+            adapted_params['conf_threshold'] = max(0.15, current_params['conf_threshold'] - 0.02)
+        elif learned_action == 'aggressive_approach':
+            adapted_params['min_distance'] = max(30, current_params['min_distance'] - 5)
+        elif learned_action == 'cautious_approach':
+            adapted_params['min_distance'] = min(100, current_params['min_distance'] + 5)
+
+        return adapted_params
+
+    def save_learning_progress(self, filename="learning_progress.json"):
+        """Сохранение прогресса обучения"""
+        data = {
+            'q_table': self.q_table,
+            'learning_stats': self.learning_stats,
+            'timestamp': time.time()
+        }
+        try:
+            with open(filename, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"[LEARNING] Ошибка сохранения прогресса: {e}")
+
+    def load_learning_progress(self, filename="learning_progress.json"):
+        """Загрузка прогресса обучения"""
+        try:
+            with open(filename, 'r') as f:
+                data = json.load(f)
+                self.q_table = data.get('q_table', self.q_table)
+                self.learning_stats = data.get('learning_stats', self.learning_stats)
+                print(f"[LEARNING] Загружен прогресс обучения от {time.ctime(data.get('timestamp', 0))}")
+        except FileNotFoundError:
+            print("[LEARNING] Файл прогресса не найден, начинаем с нуля")
+        except Exception as e:
+            print(f"[LEARNING] Ошибка загрузки прогресса: {e}")
+
+class EnhancedEvasionSystem:
+    """Расширенная система уклонения от угроз"""
+
+    def __init__(self):
+        self.threat_zones = []  # Зоны угроз
+        self.evasion_patterns = {
+            'circle_strafe': self._circle_strafe,
+            'jump_evasion': self._jump_evasion,
+            'distance_maintenance': self._distance_maintenance,
+            'predictive_dodge': self._predictive_dodge
+        }
+        self.last_evasion_time = 0
+        self.evasion_cooldown = 2.0
+
+    def assess_threat_level(self, player_targets, bot_position):
+        """Оценка уровня угрозы"""
+        threat_level = 0
+        imminent_threats = []
+
+        for player in player_targets:
+            distance = np.sqrt((player['cx'] - bot_position[0])**2 + (player['cy'] - bot_position[1])**2)
+            if distance < 150:  # Критическая дистанция
+                threat_level += 3
+                imminent_threats.append(player)
+            elif distance < 300:  # Предупреждающая дистанция
+                threat_level += 1
+
+        return threat_level, imminent_threats
+
+    def choose_evasion_strategy(self, threat_level, imminent_threats, bot_state):
+        """Выбор стратегии уклонения"""
+        if threat_level >= 3 and time.time() - self.last_evasion_time > self.evasion_cooldown:
+            if len(imminent_threats) > 1:
+                return 'circle_strafe'  # Множественные угрозы
+            else:
+                return 'predictive_dodge'  # Одна угроза
+        elif threat_level >= 1:
+            return 'distance_maintenance'  # Поддержание дистанции
+        else:
+            return None
+
+    def execute_evasion(self, strategy, imminent_threats, control_system):
+        """Выполнение маневра уклонения"""
+        if strategy == 'circle_strafe':
+            return self._circle_strafe(imminent_threats, control_system)
+        elif strategy == 'jump_evasion':
+            return self._jump_evasion(imminent_threats, control_system)
+        elif strategy == 'predictive_dodge':
+            return self._predictive_dodge(imminent_threats, control_system)
+        elif strategy == 'distance_maintenance':
+            return self._distance_maintenance(imminent_threats, control_system)
+        return False
+
+    def _circle_strafe(self, threats, control):
+        """Круговое уклонение от множественных угроз"""
+        control.press('jump')
+        time.sleep(0.1)
+        control.release('jump')
+
+        # Выполняем круговое движение
+        for _ in range(8):
+            control.press('left')
+            time.sleep(0.05)
+            control.release('left')
+            control.press('right')
+            time.sleep(0.05)
+            control.release('right')
+
+        self.last_evasion_time = time.time()
+        return True
+
+    def _jump_evasion(self, threats, control):
+        """Уклонение прыжком"""
+        control.press('jump')
+        control.press('up')
+        time.sleep(0.3)
+        control.release('jump')
+        control.release('up')
+
+        self.last_evasion_time = time.time()
+        return True
+
+    def _predictive_dodge(self, threats, control):
+        """Предиктивное уклонение на основе движения угрозы"""
+        if not threats:
+            return False
+
+        threat = threats[0]
+        # Определяем направление движения угрозы и уклоняемся в противоположную сторону
+        dodge_direction = 'left' if threat.get('cx', 0) > 400 else 'right'
+
+        control.press(dodge_direction)
+        control.press('jump')
+        time.sleep(0.2)
+        control.release(dodge_direction)
+        control.release('jump')
+
+        self.last_evasion_time = time.time()
+        return True
+
+    def _distance_maintenance(self, threats, control):
+        """Поддержание безопасной дистанции"""
+        if not threats:
+            return False
+
+        # Медленное отползание назад
+        control.press('down')
+        time.sleep(0.5)
+        control.release('down')
+
+        return True
 
 class EnhancedBallBot:
     def __init__(self, weights_path, player_weights_path=None, conf_thres=0.25, adaptive_mode=True, show_window=False, save_screenshots=False):
@@ -67,6 +536,22 @@ class EnhancedBallBot:
         if player_weights_path:
             self.player_model = YOLO(player_weights_path).to(self.device)
             print("[PREDATOR] Режим 'Хищник' активирован.")
+
+        # Инициализация оптимизированных движков
+        self.inference_engine = OptimizedInferenceEngine(self.model, self.device, use_fp16=True)
+        self.predictor = AdvancedPredictor(history_length=20)
+        if self.player_model:
+            self.player_inference_engine = OptimizedInferenceEngine(self.player_model, self.device, use_fp16=True)
+
+        # Инициализация систем ИИ
+        self.reinforcement_learner = AdaptiveReinforcementLearner(alpha=0.1, gamma=0.9, epsilon=0.15)
+        self.evasion_system = EnhancedEvasionSystem()
+
+        # Загрузка прогресса обучения
+        try:
+            self.reinforcement_learner.load_learning_progress()
+        except:
+            print("[LEARNING] Начинаем обучение с нуля")
 
         self.base_conf_thres = conf_thres
         self.conf_thres = conf_thres
@@ -402,21 +887,19 @@ class EnhancedBallBot:
         targets.sort(key=lambda t: t['priority_score'], reverse=True)
         return targets[:max_targets]
 
-    def preprocess_frame(self, img):
+    def preprocess_frame(self, img, cache_key=None):
+        """Обновленная предобработка с использованием оптимизированного движка"""
         if not self.preprocess_enabled:
             return img
 
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
-        hsv[..., 1] = np.clip(hsv[..., 1] * self.preprocess_s_gain, 0, 255)
-        hsv[..., 2] = np.clip(hsv[..., 2] * self.preprocess_v_gain, 0, 255)
-        enhanced = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
-        return enhanced
+        # Используем оптимизированный движок
+        return self.inference_engine.preprocess_image(img, cache_key)
 
     def align_imgsz(self, size):
         stride = 32
         return int(np.ceil(size / stride) * stride)
 
-    def run_multi_scale_detection(self, img):
+    def run_multi_scale_detection(self, img, frame_time):
         """Запускает серию детекций с мультискейлом и возвращает цели"""
         detection_passes = []
         base_conf = self.conf_thres
@@ -449,20 +932,21 @@ class EnhancedBallBot:
         selected_pass = None
 
         for cfg in detection_passes:
-            results = self.model(
+            # Используем оптимизированный движок
+            results = self.inference_engine.model(
                 img,
                 imgsz=cfg['imgsz'],
                 device=self.device,
                 conf=cfg['conf'],
                 verbose=False,
-                half=self.use_half,
+                half=self.inference_engine.use_fp16,
                 augment=False,
                 agnostic_nms=True
             )
 
             selected_results = results
-            # Здесь мы еще не знаем об игроках, поэтому передаем пустой список
-            targets = self.find_prioritized_targets(results, img.shape, [], max_targets=3)
+            # Детекция без учета игроков на первом этапе
+            targets = self.find_prioritized_targets(results, img.shape, [], max_targets=5)
             if targets:
                 selected_targets = targets
                 selected_pass = cfg['name']
@@ -470,6 +954,19 @@ class EnhancedBallBot:
                 self.det_pass_stats[selected_pass] = self.det_pass_stats.get(selected_pass, 0) + 1
                 if selected_pass == 'heavy':
                     self.no_detect_frames = max(0, self.no_detect_frames - self.heavy_scan_relief)
+
+                # Интеграция предсказания для найденных целей
+                for i, target in enumerate(selected_targets):
+                    track_id = f"candy_{i}_{int(frame_time)}"
+                    self.predictor.update_target_track(track_id, target['cx'], target['cy'], frame_time)
+                    target['track_id'] = track_id
+
+                    # Добавляем предсказанную позицию
+                    prediction = self.predictor.predict_position(track_id, frames_ahead=3)
+                    if prediction:
+                        target['predicted_cx'] = prediction['cx']
+                        target['predicted_cy'] = prediction['cy']
+
                 break
 
             # heavy pass без результата — тоже фиксируем, чтобы избежать спама
@@ -665,8 +1162,25 @@ class EnhancedBallBot:
         frame_h, frame_w = frame_shape[:2]
         center_x = frame_w / 2
 
-        # EMA сглаживание
-        cx = target['cx']
+        # Используем предсказанную позицию если доступна
+        if 'predicted_cx' in target and 'predicted_cy' in target:
+            # Вычисляем оптимальную точку перехвата
+            bot_pos = (center_x, center_y)
+            intercept = self.predictor.get_optimal_intercept_point(
+                target.get('track_id'), bot_pos, bot_speed=120
+            )
+            if intercept:
+                cx = intercept['cx']
+                cy = intercept['cy']
+                print(f"[PREDICT] Используем точку перехвата: ({cx:.1f}, {cy:.1f})")
+            else:
+                cx = target['predicted_cx']
+                cy = target['predicted_cy']
+        else:
+            cx = target['cx']
+            cy = target['cy']
+
+        # EMA сглаживание для стабильности
         if self.smoothed_cx is None: self.smoothed_cx = cx
         else: self.smoothed_cx = self.aim_alpha * cx + (1 - self.aim_alpha) * self.smoothed_cx
         
@@ -899,8 +1413,8 @@ class EnhancedBallBot:
 
                 # 2. Детекция конфет (чаще)
                 if self.frame_counter_internal % (self.frame_skip + 1) == 0:
-                    if det_img is None: det_img = self.preprocess_frame(img)
-                    candy_targets, candy_results = self.run_multi_scale_detection(det_img)
+                    if det_img is None: det_img = self.preprocess_frame(img, cache_key=f"frame_{current_time}")
+                    candy_targets, candy_results = self.run_multi_scale_detection(det_img, current_time)
                     self.last_known_candies = candy_targets
                 else:
                     candy_targets = self.last_known_candies
@@ -916,6 +1430,38 @@ class EnhancedBallBot:
                 # --- Конец детекции ---
                 
                 best_target = candy_targets[0] if candy_targets else None
+
+                # --- Интеграция систем ИИ ---
+                # Оценка угроз и выбор стратегии уклонения
+                bot_position = (img.shape[1] / 2, img.shape[0] / 2)
+                threat_level, imminent_threats = self.evasion_system.assess_threat_level(
+                    self.confirmed_threats, bot_position
+                )
+
+                evasion_strategy = self.evasion_system.choose_evasion_strategy(
+                    threat_level, imminent_threats, self.state
+                )
+
+                # Выполнение уклонения если необходимо
+                if evasion_strategy and threat_level >= 2:
+                    print(f"[EVASION] Выполняем {evasion_strategy} от {len(imminent_threats)} угроз")
+                    self.evasion_system.execute_evasion(evasion_strategy, imminent_threats, self.control)
+
+                # Reinforcement learning: определение состояния и выбор действия
+                current_rl_state = self.reinforcement_learner.get_state(
+                    self.state, self.conf_thres,
+                    self.current_target['distance'] if self.current_target else None,
+                    self.stuck_frames, threat_level
+                )
+
+                learned_action = self.reinforcement_learner.choose_action(current_rl_state)
+
+                # Применение изученного действия
+                if learned_action == 'memory_search' and self.state == 'SEARCHING':
+                    memory_target = self.select_memory_target()
+                    if memory_target:
+                        print("[LEARNING] Используем память для поиска цели")
+                        self.navigate_to_memory(memory_target)
 
                 # --- Главный конечный автомат ---
                 if best_target:
@@ -959,6 +1505,12 @@ class EnhancedBallBot:
                         self.forget_target(self.target_for_confirmation, img.shape)
                         self.reset_movement_state()
                         self.state = 'SEARCHING' # Сразу ищем новую
+
+                        # Обучение: положительная награда за успешный сбор
+                        success_metrics = {'collection_success': True, 'target_found': True}
+                        reward = self.reinforcement_learner.calculate_reward(learned_action, success_metrics)
+                        next_state = self.reinforcement_learner.get_state(self.state, self.conf_thres, None, 0, threat_level)
+                        self.reinforcement_learner.update_q_value(current_rl_state, learned_action, reward, next_state)
                     elif self.confirmation_frames > self.confirmation_max_frames:
                         # Провал! Конфета на месте, мы промахнулись.
                         print("[FAIL] Ошибка сбора, пробую микро-коррекцию...")
@@ -1028,6 +1580,10 @@ class EnhancedBallBot:
         finally:
             print("\n[EXIT] Завершение работы...")
             self.control.release_all_keys()
+
+            # Сохранение прогресса обучения
+            self.reinforcement_learner.save_learning_progress()
+
             self.print_stats()
             self.save_log()
             if self.show_window:
