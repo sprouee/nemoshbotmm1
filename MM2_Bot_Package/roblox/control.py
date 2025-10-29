@@ -34,6 +34,14 @@ class Control:
             for a in self.actionPressed:
                 ahk.key_up(key[a], blocking=False)
         self.actionPressed = []
+    
+    def release(self, action):
+        '''Release a specific key'''
+        assert action in key, 'Error invalid action %s'%action
+        if action in self.actionPressed:
+            if not self.simulationMode:
+                ahk.key_up(key[action], blocking=False)
+            self.actionPressed.remove(action)
 
     def all_move_actions(self):
         ''' return all move actions '''
