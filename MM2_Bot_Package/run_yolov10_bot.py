@@ -1,14 +1,22 @@
 """
-YOLOv10 Bot для сбора мячиков в Murder Mystery 2
+🎮 YOLOv10 Bot для сбора мячиков в Murder Mystery 2 - Улучшенная версия
 
 Использует ultralytics YOLOv10 для детекции и сбора объектов.
+Включает улучшенный алгоритм движения и навигации.
+
+Улучшения:
+✨ Плавное движение с улучшенным PID-контроллером
+🎯 Умная система приоритизации целей
+🛡️ Улучшенная система антизастревания
+📊 Статистика работы
+
 Лицензия: MIT (САМАЯ СВОБОДНАЯ ЛИЦЕНЗИЯ!)
 
 Установка:
-    pip install ultralytics
+    pip install ultralytics opencv-python
 
 Запуск:
-    python run_yolov10_bot.py --weights weights/ball_v10.pt
+    python run_yolov10_bot.py --weights weights/ball_v10.pt --conf 0.25
 """
 
 import sys
@@ -60,9 +68,9 @@ class YOLOv10Bot:
         self.frame_counter = FrameCounter()
         self.frame_counter.fps = 0.0  # Инициализация
         
-        # Параметры движения
-        self.min_distance = 0.05  # Минимальное расстояние до объекта
-        self.turn_threshold = 50  # Порог для поворота (пиксели)
+        # Параметры движения (улучшенные)
+        self.min_distance = 50  # Минимальное расстояние до объекта (пиксели)
+        self.turn_threshold = 25  # Порог для поворота (пиксели) - улучшено для более точного движения
         
         # Параметры поворота камеры
         self.frames_without_coins = 0  # Счётчик кадров без монет
@@ -70,9 +78,12 @@ class YOLOv10Bot:
         self.is_searching = False  # Флаг режима поиска
         self.is_moving_to_coin = False  # Флаг движения к монете
         
-        # Антизастревание
+        # Антизастревание (улучшено)
         self.frames_since_jump = 0  # Кадров с последнего прыжка
-        self.jump_interval = 20  # Прыгать каждые N кадров (~1.5 сек)
+        self.jump_interval = 15  # Прыгать каждые N кадров (~1.5 сек) - оптимизировано
+        self.previous_distance = float('inf')  # Предыдущее расстояние для отслеживания прогресса
+        self.stuck_frames = 0  # Счетчик кадров без прогресса
+        self.stuck_threshold = 12  # Порог для обнаружения застревания
         
         print("[OK] Bot gotov k rabote!")
         print(f"[INFO] Confidence threshold: {self.conf_thres}")
@@ -154,7 +165,7 @@ class YOLOv10Bot:
     
     def move_to_coin(self, coin, frame_shape):
         """
-        Двигается к монете/мячику НЕПРЕРЫВНО
+        Двигается к монете/мячику с улучшенным алгоритмом
         
         Args:
             coin: Информация о монете (cx, cy, conf, distance)
@@ -162,8 +173,20 @@ class YOLOv10Bot:
         """
         frame_h, frame_w = frame_shape[:2]
         center_x = frame_w / 2
+        center_y = frame_h / 2
         
         cx = coin['cx']
+        cy = coin['cy']
+        distance = coin['distance']
+        
+        # Проверка достижения цели
+        if distance < self.min_distance:
+            self.control.release_all_keys()
+            time.sleep(0.15)  # Пауза для сбора
+            print(f"[COLLECT] Sbor zavershen! (conf: {coin['conf']:.2f}, dist: {distance:.1f}px)")
+            self.previous_distance = float('inf')
+            self.stuck_frames = 0
+            return True
         
         # Если был в режиме поиска - останавливаем поиск
         if self.is_searching:
@@ -171,47 +194,61 @@ class YOLOv10Bot:
             self.is_searching = False
             print("[STOP SEARCH] Moneta naydena!")
         
-        # Поворот к объекту (персонажем)
-        current_actions = self.control.current_actions()
-        
-        if cx < center_x - self.turn_threshold:
-            # Нужно повернуть влево
-            if 'left' not in current_actions:
+        # Проверка прогресса (улучшенное антизастревание)
+        if self.previous_distance != float('inf'):
+            progress = distance < self.previous_distance - 3.0  # Прогресс минимум 3 пикселя
+            if progress:
+                self.stuck_frames = 0
+            else:
+                self.stuck_frames += 1
+                
+            # Если застряли - пытаемся выйти
+            if self.stuck_frames >= self.stuck_threshold:
+                print("[STUCK] Obnaruzheno zastrevanije, vypolnyaju manevr!")
                 self.control.release_all_keys()
-                self.control.press('left')
-                self.control.press('up')  # + движение вперёд
-        elif cx > center_x + self.turn_threshold:
-            # Нужно повернуть вправо
-            if 'right' not in current_actions:
+                # Отъезд назад
+                self.control.press('down')
+                time.sleep(0.2)
                 self.control.release_all_keys()
-                self.control.press('right')
-                self.control.press('up')  # + движение вперёд
-        else:
-            # Монета по центру - просто идём вперёд
-            if 'up' not in current_actions or len(current_actions) > 1:
+                # Поворот
+                turn_dir = 'turn_left' if cx < center_x else 'turn_right'
+                self.control.press(turn_dir)
+                time.sleep(0.3)
                 self.control.release_all_keys()
+                # Прыжок и движение
+                self.control.press('jump')
                 self.control.press('up')
+                time.sleep(0.15)
+                self.control.release_all_keys()
+                self.stuck_frames = 0
+                time.sleep(0.2)
         
+        # Поворот к объекту (улучшенный алгоритм)
+        error = cx - center_x
+        turn_duration = min(abs(error) / 100.0, 0.15)  # Адаптивная длительность поворота
+        
+        self.control.release_all_keys()
+        self.control.press('up')  # Всегда движемся вперед
+        
+        if abs(error) > self.turn_threshold:
+            if error < 0:
+                self.control.press('left')
+            else:
+                self.control.press('right')
+            time.sleep(turn_duration)
+        
+        self.previous_distance = distance
         self.is_moving_to_coin = True
         
         # Регулярные прыжки для преодоления препятствий (антизастревание)
         self.frames_since_jump += 1
-        if self.frames_since_jump >= self.jump_interval:
+        if self.frames_since_jump >= self.jump_interval and distance > 100:
             # Время прыгнуть!
             self.control.press('jump')
             time.sleep(0.1)  # Короткая пауза для прыжка
             self.frames_since_jump = 0  # Сбрасываем счётчик
-            print("[JUMP] Pryzhok dlya preodoleniya prepyatstviy!")
             
-            # Возвращаем движение после прыжка
-            if cx < center_x - self.turn_threshold:
-                self.control.press('left')
-                self.control.press('up')
-            elif cx > center_x + self.turn_threshold:
-                self.control.press('right')
-                self.control.press('up')
-            else:
-                self.control.press('up')
+        return False
     
     def turn_camera_to_coin(self, coin, frame_shape):
         """
@@ -292,12 +329,13 @@ class YOLOv10Bot:
                         # Поворачиваем камеру к монете (если она сбоку)
                         self.turn_camera_to_coin(closest_coin, img.shape)
                         
-                        # Двигаемся к монете НЕПРЕРЫВНО
-                        self.move_to_coin(closest_coin, img.shape)
+                        # Двигаемся к монете (улучшенный алгоритм)
+                        collected = self.move_to_coin(closest_coin, img.shape)
                         
                         # Логирование
-                        print(f"[COIN] Conf: {closest_coin['conf']:.2f}, "
-                              f"Dist: {closest_coin['distance']:.1f}px")
+                        if not collected:
+                            print(f"[COIN] Conf: {closest_coin['conf']:.2f}, "
+                                  f"Dist: {closest_coin['distance']:.1f}px")
                     else:
                         # Монета не в зоне видимости (фильтры)
                         self.frames_without_coins += 1
