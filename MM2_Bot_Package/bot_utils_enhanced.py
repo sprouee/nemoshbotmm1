@@ -331,3 +331,275 @@ def save_performance_report(stats, filename="performance_report.json"):
         print(f"[REPORT] Отчет сохранен в {filename}")
     except Exception as e:
         print(f"[ERROR] Ошибка сохранения отчета: {e}")
+
+
+class TrajectoryPredictor:
+    """Предсказатель траектории движения целей"""
+    
+    def __init__(self, history_size=5):
+        self.history = deque(maxlen=history_size)
+        self.velocity = [0.0, 0.0]
+        self.acceleration = [0.0, 0.0]
+    
+    def update(self, cx, cy, timestamp):
+        """Обновление позиции цели"""
+        self.history.append({'cx': cx, 'cy': cy, 'time': timestamp})
+        
+        if len(self.history) >= 2:
+            # Вычисление скорости
+            last = self.history[-1]
+            prev = self.history[-2]
+            dt = last['time'] - prev['time']
+            
+            if dt > 0:
+                self.velocity[0] = (last['cx'] - prev['cx']) / dt
+                self.velocity[1] = (last['cy'] - prev['cy']) / dt
+                
+                if len(self.history) >= 3:
+                    # Вычисление ускорения
+                    prev_prev = self.history[-2]
+                    prev_dt = prev['time'] - prev_prev['time']
+                    
+                    if prev_dt > 0:
+                        prev_velocity_x = (prev['cx'] - prev_prev['cx']) / prev_dt
+                        prev_velocity_y = (prev['cy'] - prev_prev['cy']) / prev_dt
+                        
+                        self.acceleration[0] = (self.velocity[0] - prev_velocity_x) / dt
+                        self.acceleration[1] = (self.velocity[1] - prev_velocity_y) / dt
+    
+    def predict(self, horizon=0.1):
+        """Предсказание будущей позиции"""
+        if len(self.history) < 2:
+            return None
+        
+        last = self.history[-1]
+        predicted_cx = last['cx'] + self.velocity[0] * horizon + 0.5 * self.acceleration[0] * horizon**2
+        predicted_cy = last['cy'] + self.velocity[1] * horizon + 0.5 * self.acceleration[1] * horizon**2
+        
+        return {'cx': predicted_cx, 'cy': predicted_cy}
+
+
+class PathPlanner:
+    """Планировщик пути для оптимальной навигации"""
+    
+    def __init__(self):
+        self.obstacle_history = deque(maxlen=20)
+        self.path_cache = {}
+    
+    def plan_path(self, start, goal, obstacles=None):
+        """Планирование пути от начальной точки к цели"""
+        # Упрощенный A* алгоритм
+        if obstacles is None:
+            obstacles = []
+        
+        # Простое планирование - движение по прямой с обходом препятствий
+        path = []
+        
+        # Разбиваем путь на сегменты
+        steps = 10
+        for i in range(steps + 1):
+            t = i / steps
+            x = start[0] * (1 - t) + goal[0] * t
+            y = start[1] * (1 - t) + goal[1] * t
+            
+            # Проверка на препятствия
+            collision = False
+            for obs in obstacles:
+                dist = np.sqrt((x - obs[0])**2 + (y - obs[1])**2)
+                if dist < obs[2]:  # Радиус препятствия
+                    collision = True
+                    break
+            
+            if not collision:
+                path.append((x, y))
+        
+        return path if path else [goal]
+
+
+class AdvancedPIDController:
+    """Улучшенный PID контроллер с адаптацией"""
+    
+    def __init__(self, kp=0.04, ki=0.001, kd=0.025):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.prev_output = 0.0
+        
+        self.integral_limit = 100.0
+        self.alpha = 0.3  # EMA для сглаживания
+        
+        # Адаптивные коэффициенты
+        self.adaptive = True
+        self.error_history = deque(maxlen=20)
+        
+    def compute(self, error, dt):
+        """Вычисление PID выхода"""
+        # Пропорциональная часть
+        p_term = self.kp * error
+        
+        # Интегральная часть с антивиндэпом
+        self.integral += error * dt
+        self.integral = np.clip(self.integral, -self.integral_limit, self.integral_limit)
+        i_term = self.ki * self.integral
+        
+        # Дифференциальная часть с фильтрацией
+        if dt > 0:
+            derivative = (error - self.prev_error) / dt
+        else:
+            derivative = 0.0
+        
+        # EMA фильтрация производной
+        self.prev_output = self.alpha * derivative + (1 - self.alpha) * self.prev_output
+        d_term = self.kd * self.prev_output
+        
+        # Адаптация (если включена)
+        if self.adaptive:
+            self.error_history.append(abs(error))
+            if len(self.error_history) >= 10:
+                avg_error = np.mean(self.error_history)
+                if avg_error > 50:  # Большая ошибка - увеличиваем Kp
+                    self.kp = min(0.08, self.kp * 1.05)
+                elif avg_error < 10:  # Малая ошибка - уменьшаем Kp
+                    self.kp = max(0.02, self.kp * 0.95)
+        
+        output = p_term + i_term + d_term
+        
+        self.prev_error = error
+        return output
+    
+    def reset(self):
+        """Сброс контроллера"""
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.prev_output = 0.0
+        self.error_history.clear()
+
+
+class ImageEnhancer:
+    """Улучшение изображения для лучшей детекции"""
+    
+    def __init__(self):
+        self.enhancement_enabled = True
+        
+    def enhance(self, img):
+        """Улучшение изображения"""
+        if not self.enhancement_enabled:
+            return img
+        
+        # Конвертация в HSV
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+        
+        # Увеличение насыщенности
+        hsv[..., 1] = np.clip(hsv[..., 1] * 1.15, 0, 255)
+        
+        # Увеличение яркости
+        hsv[..., 2] = np.clip(hsv[..., 2] * 1.2, 0, 255)
+        
+        # Конвертация обратно
+        enhanced = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        
+        # Добавление контраста
+        enhanced = cv2.convertScaleAbs(enhanced, alpha=1.1, beta=5)
+        
+        return enhanced
+
+
+class SmartCache:
+    """Умный кэш для оптимизации детекции"""
+    
+    def __init__(self, ttl=0.5):
+        self.cache = {}
+        self.ttl = ttl  # Time to live в секундах
+        self.access_times = {}
+    
+    def get(self, key):
+        """Получение значения из кэша"""
+        if key in self.cache:
+            if time.time() - self.access_times[key] < self.ttl:
+                return self.cache[key]
+            else:
+                # Истек срок действия
+                del self.cache[key]
+                del self.access_times[key]
+        return None
+    
+    def set(self, key, value):
+        """Сохранение значения в кэш"""
+        self.cache[key] = value
+        self.access_times[key] = time.time()
+    
+    def clear(self):
+        """Очистка кэша"""
+        self.cache.clear()
+        self.access_times.clear()
+    
+    def cleanup(self):
+        """Очистка устаревших записей"""
+        current_time = time.time()
+        keys_to_remove = [
+            key for key, access_time in self.access_times.items()
+            if current_time - access_time >= self.ttl
+        ]
+        
+        for key in keys_to_remove:
+            if key in self.cache:
+                del self.cache[key]
+            if key in self.access_times:
+                del self.access_times[key]
+
+
+class PerformanceProfiler:
+    """Профилировщик производительности"""
+    
+    def __init__(self):
+        self.timings = {}
+        self.call_counts = {}
+        
+    def start_timer(self, name):
+        """Начать таймер"""
+        if name not in self.timings:
+            self.timings[name] = []
+            self.call_counts[name] = 0
+        
+        self.timings[name].append({'start': time.time()})
+        self.call_counts[name] += 1
+    
+    def end_timer(self, name):
+        """Завершить таймер"""
+        if name in self.timings and self.timings[name]:
+            last = self.timings[name][-1]
+            if 'start' in last:
+                last['duration'] = time.time() - last['start']
+                del last['start']
+    
+    def get_stats(self):
+        """Получить статистику"""
+        stats = {}
+        for name, timings in self.timings.items():
+            durations = [t['duration'] for t in timings if 'duration' in t]
+            if durations:
+                stats[name] = {
+                    'calls': self.call_counts[name],
+                    'avg_time': np.mean(durations),
+                    'min_time': np.min(durations),
+                    'max_time': np.max(durations),
+                    'total_time': np.sum(durations)
+                }
+        return stats
+    
+    def print_stats(self):
+        """Вывести статистику"""
+        stats = self.get_stats()
+        print("\n" + "=" * 60)
+        print("📊 ПРОФИЛЬ ПРОИЗВОДИТЕЛЬНОСТИ")
+        print("=" * 60)
+        for name, stat in stats.items():
+            print(f"{name}:")
+            print(f"  Вызовов: {stat['calls']}")
+            print(f"  Среднее время: {stat['avg_time']*1000:.2f} мс")
+            print(f"  Мин/Макс: {stat['min_time']*1000:.2f} / {stat['max_time']*1000:.2f} мс")
+            print(f"  Общее время: {stat['total_time']:.2f} с")
+        print("=" * 60)
