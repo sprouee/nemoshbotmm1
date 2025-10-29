@@ -60,9 +60,11 @@ class YOLOv10Bot:
         self.frame_counter = FrameCounter()
         self.frame_counter.fps = 0.0  # Инициализация
         
-        # Параметры движения
-        self.min_distance = 0.05  # Минимальное расстояние до объекта
-        self.turn_threshold = 50  # Порог для поворота (пиксели)
+        # Параметры движения (адаптивные)
+        self.min_distance = 40  # Минимальное расстояние до объекта в пикселях
+        self.min_distance_close = 25  # Расстояние для сбора (очень близко)
+        self.turn_threshold = 50  # Базовый порог для поворота (пиксели)
+        self.turn_threshold_near = 30  # Порог поворота вблизи цели
         
         # Параметры поворота камеры
         self.frames_without_coins = 0  # Счётчик кадров без монет
@@ -70,9 +72,23 @@ class YOLOv10Bot:
         self.is_searching = False  # Флаг режима поиска
         self.is_moving_to_coin = False  # Флаг движения к монете
         
-        # Антизастревание
+        # Антизастревание (улучшенное)
         self.frames_since_jump = 0  # Кадров с последнего прыжка
-        self.jump_interval = 20  # Прыгать каждые N кадров (~1.5 сек)
+        self.jump_interval = 15  # Прыгать каждые N кадров (~1 сек)
+        self.stuck_frames = 0  # Кадров без прогресса
+        self.stuck_threshold = 30  # Порог застревания
+        self.last_distance = float('inf')  # Последнее расстояние до цели
+        self.no_progress_frames = 0  # Кадров без уменьшения расстояния
+        
+        # Умный поиск
+        self.search_direction = 1  # 1 = вправо, -1 = влево
+        self.search_angle = 0  # Текущий угол поиска
+        self.last_coin_position = None  # Последняя известная позиция монеты
+        self.search_pattern_index = 0  # Индекс паттерна поиска
+        
+        # История монет для предсказания движения
+        self.coin_history = []  # История позиций монет (max 5 кадров)
+        self.history_max_len = 5
         
         print("[OK] Bot gotov k rabote!")
         print(f"[INFO] Confidence threshold: {self.conf_thres}")
@@ -98,21 +114,20 @@ class YOLOv10Bot:
     
     def find_closest_coin(self, boxes, frame_shape):
         """
-        Находит ближайшую монету/мячик
+        Находит лучшую монету/мячик с умной приоритизацией
         
         Args:
             boxes: Список детекций
             frame_shape: Размеры кадра (height, width)
         
         Returns:
-            Координаты центра ближайшего объекта или None
+            Информация о лучшей монете или None
         """
         frame_h, frame_w = frame_shape[:2]
         center_x = frame_w / 2
         center_y = frame_h / 2
         
-        closest_coin = None
-        min_distance = float('inf')
+        candidates = []
         
         for box in boxes:
             cls = int(box.cls[0])
@@ -126,66 +141,184 @@ class YOLOv10Bot:
                 cx = (x1 + x2) / 2
                 cy = (y1 + y2) / 2
                 
+                # Размер объекта (площадь)
+                area = (x2 - x1) * (y2 - y1)
+                size_ratio = area / (frame_w * frame_h)
+                
                 # Нормализованные координаты
                 norm_x = cx / frame_w
                 norm_y = cy / frame_h
                 
-                # Фильтр: игнорируем объекты в верхней части экрана
-                if norm_y < 0.4:
+                # Фильтр: игнорируем объекты в верхней части экрана (далеко)
+                if norm_y < 0.35:
                     continue
                 
-                # Фильтр: игнорируем объекты по краям
-                if norm_x < 0.2 or norm_x > 0.8:
-                    continue
+                # Мягкий фильтр краёв - объекты по краям менее приоритетны
+                edge_penalty = 1.0
+                if norm_x < 0.15 or norm_x > 0.85:
+                    edge_penalty = 0.7
+                elif norm_x < 0.25 or norm_x > 0.75:
+                    edge_penalty = 0.85
                 
                 # Расстояние до центра экрана
                 distance = np.sqrt((cx - center_x)**2 + (cy - center_y)**2)
                 
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_coin = {
-                        'cx': cx,
-                        'cy': cy,
-                        'conf': conf,
-                        'distance': distance
-                    }
+                # Угол отклонения (важно для приоритизации поворотов)
+                angle_offset = abs(cx - center_x) / frame_w
+                
+                # СКОР - комбинированный приоритет:
+                # 1. Чем ближе - тем лучше
+                # 2. Чем выше уверенность - тем лучше
+                # 3. Чем больше размер (ближе к камере) - тем лучше
+                # 4. Чем меньше угол отклонения - тем лучше
+                # 5. Штраф за края экрана
+                
+                distance_score = 1.0 / (1.0 + distance / 100.0)  # Нормализованное расстояние
+                confidence_score = conf
+                size_score = min(size_ratio * 100, 1.0)  # Нормализованный размер
+                angle_score = 1.0 - min(angle_offset * 2, 0.5)  # Штраф за угол
+                
+                priority_score = (
+                    distance_score * 0.4 +  # Вес: близость
+                    confidence_score * 0.3 +  # Вес: уверенность
+                    size_score * 0.2 +  # Вес: размер
+                    angle_score * 0.1  # Вес: угол
+                ) * edge_penalty  # Штраф за края
+                
+                candidates.append({
+                    'cx': cx,
+                    'cy': cy,
+                    'conf': conf,
+                    'distance': distance,
+                    'size_ratio': size_ratio,
+                    'angle_offset': angle_offset,
+                    'priority': priority_score,
+                    'area': area
+                })
         
-        return closest_coin
+        if not candidates:
+            return None
+        
+        # Сортируем по приоритету
+        candidates.sort(key=lambda c: c['priority'], reverse=True)
+        
+        # Возвращаем лучшую монету
+        best_coin = candidates[0]
+        
+        # Обновляем историю для предсказания движения
+        self.coin_history.append({
+            'cx': best_coin['cx'],
+            'cy': best_coin['cy'],
+            'frame': len(self.coin_history)
+        })
+        if len(self.coin_history) > self.history_max_len:
+            self.coin_history.pop(0)
+        
+        return best_coin
     
     def move_to_coin(self, coin, frame_shape):
         """
-        Двигается к монете/мячику НЕПРЕРЫВНО
+        Двигается к монете/мячику с адаптивными параметрами
         
         Args:
-            coin: Информация о монете (cx, cy, conf, distance)
+            coin: Информация о монете (cx, cy, conf, distance, ...)
             frame_shape: Размеры кадра
         """
         frame_h, frame_w = frame_shape[:2]
         center_x = frame_w / 2
         
         cx = coin['cx']
+        distance = coin['distance']
+        size_ratio = coin.get('size_ratio', 0)
         
         # Если был в режиме поиска - останавливаем поиск
         if self.is_searching:
             self.control.release_all_keys()
             self.is_searching = False
+            self.stuck_frames = 0
+            self.no_progress_frames = 0
             print("[STOP SEARCH] Moneta naydena!")
         
-        # Поворот к объекту (персонажем)
-        current_actions = self.control.current_actions()
+        # Адаптивный порог поворота в зависимости от расстояния
+        adaptive_threshold = self.turn_threshold
+        if distance < 150:  # Близко к цели - более точные повороты
+            adaptive_threshold = self.turn_threshold_near
+        elif distance > 300:  # Далеко - более широкий диапазон
+            adaptive_threshold = self.turn_threshold * 1.5
         
-        if cx < center_x - self.turn_threshold:
-            # Нужно повернуть влево
-            if 'left' not in current_actions:
-                self.control.release_all_keys()
+        # Проверка на застревание: если расстояние не уменьшается
+        is_making_progress = False
+        if distance < self.last_distance - 5:  # Прогресс (уменьшение расстояния на 5px+)
+            is_making_progress = True
+            self.no_progress_frames = 0
+        else:
+            self.no_progress_frames += 1
+        
+        self.last_distance = distance
+        
+        # Если давно нет прогресса - застряли!
+        if self.no_progress_frames > self.stuck_threshold:
+            self.stuck_frames += 1
+            print(f"[STUCK] Zastryanie! Popytka vykhoda ({self.stuck_frames})...")
+            
+            # Стратегия выхода из застревания
+            self.control.release_all_keys()
+            time.sleep(0.1)
+            
+            # Прыжок назад + поворот
+            self.control.press('down')
+            time.sleep(0.15)
+            self.control.press('jump')
+            time.sleep(0.2)
+            self.control.release_all_keys()
+            
+            # Случайный поворот для выхода
+            if self.stuck_frames % 2 == 0:
                 self.control.press('left')
-                self.control.press('up')  # + движение вперёд
-        elif cx > center_x + self.turn_threshold:
-            # Нужно повернуть вправо
-            if 'right' not in current_actions:
-                self.control.release_all_keys()
+                time.sleep(0.2)
+            else:
                 self.control.press('right')
-                self.control.press('up')  # + движение вперёд
+                time.sleep(0.2)
+            
+            self.control.release_all_keys()
+            self.no_progress_frames = 0
+            self.last_distance = float('inf')  # Сброс для следующей попытки
+            return
+        
+        # Определяем, достаточно ли близко для сбора
+        collect_distance = self.min_distance_close if size_ratio > 0.01 else self.min_distance
+        
+        if distance < collect_distance:
+            # Очень близко - пытаемся собрать (пауза для автоподбора)
+            self.control.release_all_keys()
+            time.sleep(0.3)  # Даём время для автоподбора
+            print(f"[COLLECT] Sobiraem monetu! (dist: {distance:.1f}px, conf: {coin['conf']:.2f})")
+            
+            # После сбора - краткая пауза
+            time.sleep(0.1)
+            self.is_moving_to_coin = False
+            self.last_distance = float('inf')
+            return
+        
+        # Нормальное движение к цели
+        current_actions = self.control.current_actions()
+        error = cx - center_x
+        
+        # Плавный поворот с адаптивным порогом
+        if abs(error) > adaptive_threshold:
+            # Нужен поворот
+            if error < 0:
+                # Поворачиваем влево
+                if 'left' not in current_actions or 'right' in current_actions:
+                    self.control.release_all_keys()
+                    self.control.press('left')
+                    self.control.press('up')
+            else:
+                # Поворачиваем вправо
+                if 'right' not in current_actions or 'left' in current_actions:
+                    self.control.release_all_keys()
+                    self.control.press('right')
+                    self.control.press('up')
         else:
             # Монета по центру - просто идём вперёд
             if 'up' not in current_actions or len(current_actions) > 1:
@@ -194,21 +327,25 @@ class YOLOv10Bot:
         
         self.is_moving_to_coin = True
         
-        # Регулярные прыжки для преодоления препятствий (антизастревание)
+        # Умные прыжки: чаще когда далеко, реже когда близко
         self.frames_since_jump += 1
-        if self.frames_since_jump >= self.jump_interval:
-            # Время прыгнуть!
+        jump_interval_adaptive = self.jump_interval
+        if distance > 200:  # Далеко - чаще прыгаем
+            jump_interval_adaptive = int(self.jump_interval * 0.75)
+        elif distance < 100:  # Близко - реже прыгаем (чтобы не перепрыгнуть)
+            jump_interval_adaptive = int(self.jump_interval * 1.5)
+        
+        if self.frames_since_jump >= jump_interval_adaptive:
             self.control.press('jump')
-            time.sleep(0.1)  # Короткая пауза для прыжка
-            self.frames_since_jump = 0  # Сбрасываем счётчик
-            print("[JUMP] Pryzhok dlya preodoleniya prepyatstviy!")
+            time.sleep(0.1)
+            self.frames_since_jump = 0
             
             # Возвращаем движение после прыжка
-            if cx < center_x - self.turn_threshold:
-                self.control.press('left')
-                self.control.press('up')
-            elif cx > center_x + self.turn_threshold:
-                self.control.press('right')
+            if abs(error) > adaptive_threshold:
+                if error < 0:
+                    self.control.press('left')
+                else:
+                    self.control.press('right')
                 self.control.press('up')
             else:
                 self.control.press('up')
@@ -245,29 +382,51 @@ class YOLOv10Bot:
     
     def start_search(self):
         """
-        Медленный поворот камеры для поиска монет (с паузами)
+        Умный поиск монет с паттернами и запоминанием направлений
         """
         if not self.is_searching:
             self.is_searching = True
             self.is_moving_to_coin = False
-            print("[SEARCH] Medlenno ischu monety...")
+            self.stuck_frames = 0
+            print(f"[SEARCH] Umnyy poisk monet (pattern: {self.search_pattern_index % 4})...")
         
         # Останавливаем всё движение
         self.control.release_all_keys()
         
-        # МЕДЛЕННЫЙ поворот: нажать → пауза → отпустить → анализ
-        self.control.press('turn_right')
-        time.sleep(0.15)  # Короткое нажатие (медленный поворот)
-        self.control.release_all_keys()
-        time.sleep(0.05)  # Пауза для анализа кадра нейронкой
+        # Паттерны поиска для лучшего покрытия пространства
+        search_patterns = [
+            ('turn_right', 0.2),   # Паттерн 0: вправо
+            ('turn_left', 0.2),    # Паттерн 1: влево (компенсация)
+            ('turn_right', 0.15),   # Паттерн 2: немного вправо
+            ('turn_left', 0.15),    # Паттерн 3: немного влево
+        ]
         
-        # Прыжки во время поиска (чтобы не застревать)
+        pattern_type, pattern_duration = search_patterns[self.search_pattern_index % len(search_patterns)]
+        
+        # Выполняем поворот по паттерну
+        self.control.press(pattern_type)
+        time.sleep(pattern_duration)
+        self.control.release_all_keys()
+        
+        # Обновляем индекс паттерна для следующего раза
+        self.search_pattern_index += 1
+        self.search_angle += pattern_duration * (1 if 'right' in pattern_type else -1) * 30
+        
+        # Пауза для анализа кадра
+        time.sleep(0.08)
+        
+        # Прыжки во время поиска для предотвращения застревания
         self.frames_since_jump += 1
         if self.frames_since_jump >= self.jump_interval:
             self.control.press('jump')
             time.sleep(0.1)
             self.frames_since_jump = 0
-            print("[JUMP] Pryzhok vo vremya poiska!")
+            
+        # Периодическое движение вперёд во время поиска (чтобы не стоять на месте)
+        if self.frames_without_coins % 10 == 5:  # Каждые 10 кадров немного вперёд
+            self.control.press('up')
+            time.sleep(0.2)
+            self.control.release_all_keys()
     
     def run(self):
         """
@@ -286,18 +445,21 @@ class YOLOv10Bot:
                     closest_coin = self.find_closest_coin(boxes, img.shape)
                     
                     if closest_coin:
-                        # Монета найдена! Сбрасываем счётчик
+                        # Монета найдена! Сбрасываем счётчики
                         self.frames_without_coins = 0
+                        self.last_coin_position = (closest_coin['cx'], closest_coin['cy'])
                         
                         # Поворачиваем камеру к монете (если она сбоку)
                         self.turn_camera_to_coin(closest_coin, img.shape)
                         
-                        # Двигаемся к монете НЕПРЕРЫВНО
+                        # Двигаемся к монете с улучшенной логикой
                         self.move_to_coin(closest_coin, img.shape)
                         
-                        # Логирование
+                        # Логирование с улучшенной информацией
+                        priority_info = f", Priority: {closest_coin.get('priority', 0):.3f}" if 'priority' in closest_coin else ""
                         print(f"[COIN] Conf: {closest_coin['conf']:.2f}, "
-                              f"Dist: {closest_coin['distance']:.1f}px")
+                              f"Dist: {closest_coin['distance']:.1f}px, "
+                              f"Size: {closest_coin.get('size_ratio', 0)*100:.2f}%{priority_info}")
                     else:
                         # Монета не в зоне видимости (фильтры)
                         self.frames_without_coins += 1

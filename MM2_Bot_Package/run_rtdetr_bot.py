@@ -9,6 +9,7 @@ import argparse
 import time
 import numpy as np
 import torch
+import random
 
 try:
     import cv2
@@ -56,9 +57,11 @@ class RTDETRBot:
         self.dt = 0.05
         self.integral_limit = 100.0
         
-        # Params
-        self.min_distance = 60
+        # Params (улучшенные)
+        self.min_distance = 40  # Базовое минимальное расстояние
+        self.min_distance_close = 25  # Для крупных объектов
         self.turn_threshold = 30
+        self.turn_threshold_near = 20  # Более точные повороты вблизи
         self.paste_delay = 0.3
         self.predict_size = 320
         
@@ -74,11 +77,28 @@ class RTDETRBot:
         self.retry_frames = 0
         self.retry_threshold = 3
         
+        # Улучшенное антизастревание
+        self.stuck_frames = 0
+        self.stuck_threshold = 25
+        self.no_progress_frames = 0
+        
+        # Умный поиск
+        self.search_pattern_index = 0
+        self.search_patterns = [
+            ('turn_right', 0.2),
+            ('turn_left', 0.2),
+            ('turn_right', 0.15),
+            ('turn_left', 0.15),
+        ]
+        
         print("[OK] Bot готов!")
         print(f"[INFO] Conf: {self.conf_thres}, Min dist: {self.min_distance}px")
         print("\n[START] Ctrl+C для остановки\n")
     
     def find_closest_coins(self, results, frame_shape, max_coins=2):
+        """
+        Улучшенная приоритизация монет с несколькими факторами
+        """
         frame_h, frame_w = frame_shape[:2]
         center_x = frame_w / 2
         center_y = frame_h / 2
@@ -97,16 +117,44 @@ class RTDETRBot:
                     cx = (x1 + x2) / 2
                     cy = (y1 + y2) / 2
                     
+                    # Размер объекта
+                    area = (x2 - x1) * (y2 - y1)
+                    size_ratio = area / (frame_w * frame_h)
+                    
                     norm_x = cx / frame_w
                     norm_y = cy / frame_h
                     
-                    if norm_y < 0.3 or norm_x < 0.15 or norm_x > 0.85:
+                    # Мягкие фильтры
+                    if norm_y < 0.3:
                         continue
                     
-                    distance = np.sqrt((cx - center_x)**2 + (cy - center_y)**2)
-                    score = distance * (1 - conf)
+                    edge_penalty = 1.0
+                    if norm_x < 0.15 or norm_x > 0.85:
+                        edge_penalty = 0.7
+                    elif norm_x < 0.2 or norm_x > 0.8:
+                        edge_penalty = 0.85
                     
-                    coins.append({'cx': cx, 'cy': cy, 'conf': conf, 'distance': distance, 'score': score})
+                    distance = np.sqrt((cx - center_x)**2 + (cy - center_y)**2)
+                    
+                    # Улучшенный скор
+                    distance_score = 1.0 / (1.0 + distance / 100.0)
+                    confidence_score = conf
+                    size_score = min(size_ratio * 100, 1.0)
+                    angle_score = 1.0 - min(abs(cx - center_x) / frame_w * 2, 0.5)
+                    
+                    priority = (
+                        distance_score * 0.4 +
+                        confidence_score * 0.3 +
+                        size_score * 0.2 +
+                        angle_score * 0.1
+                    ) * edge_penalty
+                    
+                    coins.append({
+                        'cx': cx, 'cy': cy, 'conf': conf, 'distance': distance,
+                        'score': -priority,  # Для сортировки по возрастанию (лучшие первыми)
+                        'size_ratio': size_ratio,
+                        'priority': priority
+                    })
         
         coins.sort(key=lambda c: c['score'])
         return coins[:max_coins]
@@ -136,16 +184,49 @@ class RTDETRBot:
             self.is_searching = False
             print("[STOP SEARCH] Монета найдена!")
         
-        if distance < self.min_distance:
+        # Адаптивное расстояние сбора в зависимости от размера объекта
+        size_ratio = coin.get('size_ratio', 0)
+        collect_distance = self.min_distance_close if size_ratio > 0.01 else self.min_distance
+        
+        if distance < collect_distance:
             self.control.release_all_keys()
             time.sleep(self.paste_delay)
             
-            print(f"[COLLECT] Подобрали! (conf: {conf:.2f}, dist: {distance:.1f}px)")
+            print(f"[COLLECT] Подобрали! (conf: {conf:.2f}, dist: {distance:.1f}px, size: {size_ratio*100:.2f}%)")
             self.integral = 0.0
             self.previous_distance = float('inf')
             self.is_moving_to_coin = False
             self.frames_after_collect = self.post_collect_frames
+            self.no_progress_frames = 0
             return True
+        
+        # Адаптивный порог поворота
+        adaptive_threshold = self.turn_threshold_near if distance < 150 else self.turn_threshold
+        
+        # Проверка прогресса
+        if not progress:
+            self.no_progress_frames += 1
+            if self.no_progress_frames > self.stuck_threshold:
+                self.stuck_frames += 1
+                print(f"[STUCK] Застревание! Попытка выхода ({self.stuck_frames})...")
+                self.control.release_all_keys()
+                time.sleep(0.1)
+                self.control.press('down')
+                time.sleep(0.15)
+                self.control.press('jump')
+                time.sleep(0.2)
+                if self.stuck_frames % 2 == 0:
+                    self.control.press('left')
+                    time.sleep(0.2)
+                else:
+                    self.control.press('right')
+                    time.sleep(0.2)
+                self.control.release_all_keys()
+                self.no_progress_frames = 0
+                self.previous_distance = float('inf')
+                return False
+        else:
+            self.no_progress_frames = 0
         
         turn_time = abs(pid_output) / 10
         turn_time = max(0.05, min(0.2, turn_time))
@@ -154,7 +235,7 @@ class RTDETRBot:
         
         self.control.release_all_keys()
         
-        if abs(error) > self.turn_threshold:
+        if abs(error) > adaptive_threshold:
             if error < 0:
                 self.control.press('left')
             else:
@@ -194,15 +275,25 @@ class RTDETRBot:
         if not self.is_searching:
             self.is_searching = True
             self.is_moving_to_coin = False
-            print("[SEARCH] Поиск...")
+            self.stuck_frames = 0
+            print(f"[SEARCH] Умный поиск (pattern: {self.search_pattern_index % 4})...")
         
         self.control.release_all_keys()
         
-        direction = 'right' if self.frames_without_coins % 2 == 0 else 'left'
-        self.control.press(f'turn_{direction}')
-        time.sleep(0.2 + random.uniform(0, 0.1))
+        # Используем паттерны поиска
+        pattern_type, pattern_duration = self.search_patterns[self.search_pattern_index % len(self.search_patterns)]
+        self.control.press(pattern_type)
+        time.sleep(pattern_duration)
         self.control.release_all_keys()
-        time.sleep(0.1)
+        
+        self.search_pattern_index += 1
+        time.sleep(0.08)
+        
+        # Периодическое движение вперёд
+        if self.frames_without_coins % 10 == 5:
+            self.control.press('up')
+            time.sleep(0.2)
+            self.control.release_all_keys()
         
         self.frames_since_jump += 1
         if self.frames_since_jump >= self.jump_interval:
