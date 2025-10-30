@@ -55,6 +55,12 @@ class Control:
         '''return current actions in motion'''
         return self.actionPressed.copy()
 
+    def press_for(self, action, duration):
+        """Presses a key for a given duration."""
+        self.press(action)
+        time.sleep(duration)
+        self.release(action)
+
 
 
 

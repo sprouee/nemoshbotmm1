@@ -1,12 +1,13 @@
 @echo off
-set "CANDY_WEIGHTS=weights/candies_v10.pt"
-set "PLAYER_WEIGHTS=weights/peoples_yolov10m.pt"
+set "CANDY_WEIGHTS=weights/candies_v10.onnx"
+set "PLAYER_WEIGHTS=weights/peoples_yolov10m.onnx"
 set "CONFIDENCE=0.22"
 set "PLAYER_CONFIDENCE=0.45"
-set "CANDY_FRAME_SKIP=0"
-set "PLAYER_FRAME_SKIP=4"
+set "CANDY_FRAME_SKIP=2"
+set "PLAYER_FRAME_SKIP=6"
 
 echo [INFO] Starting Predator Bot v5.4 (Ghost Hunter Edition)...
+echo [INFO] Using OPTIMIZED ONNX Models!
 echo [INFO] Candy Model: %CANDY_WEIGHTS%
 echo [INFO] Player Model: %PLAYER_WEIGHTS%
 echo [INFO] Candy Confidence: %CONFIDENCE%

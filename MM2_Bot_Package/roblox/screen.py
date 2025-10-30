@@ -1,6 +1,6 @@
 # All screen and windows related functions
 DEBUG = False
-from PIL import ImageGrab
+from PIL import ImageGrab, Image # 🚀 Добавляем Image
 import win32gui
 import pywintypes
 import time
@@ -16,6 +16,7 @@ import os
 import random
 import string
 from pathlib import Path
+import mss  # 🚀 Импортируем сверхбыстрый MSS
 
 # Make program aware of DPI scaling, otherwise values from GetWindowRect will be incorrect
 user32 = windll.user32
@@ -74,6 +75,37 @@ def captureWindow(handle, convert = None, save=None):
         raise ValueError('Unsupported conversion type %s'%convert)
     return img
 
+def captureWindowMSS(handle, convert=None, save=None):
+    """Сверхбыстрый захват окна с использованием MSS"""
+    try:
+        if not DEBUG:
+            win32gui.SetForegroundWindow(handle)
+    except pywintypes.error:
+        time.sleep(0.01)
+
+    bbox = win32gui.GetWindowRect(handle)
+    
+    # Корректируем bbox для MSS
+    monitor = {'top': bbox[1], 'left': bbox[0], 'width': bbox[2] - bbox[0], 'height': bbox[3] - bbox[1]}
+
+    with mss.mss() as sct:
+        img_mss = sct.grab(monitor)
+        img = Image.frombytes('RGB', img_mss.size, img_mss.bgra, 'raw', 'BGRX')
+
+    if save:
+        thread = threading.Thread(target=img.save, args=(save,))
+        thread.start()
+        print('saved an streaming image...')
+        
+    img = np.array(img)
+    if convert == 'GBR':
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    elif convert is None:
+        pass
+    else:
+        raise ValueError('Unsupported conversion type %s' % convert)
+    return img
+
 def killImageWindow(name='Microsoft.Photos.exe'):
     '''Kill a image window by process name '''
     for proc in psutil.process_iter():
@@ -129,7 +161,7 @@ class CaptureStream:
                 save = filename%i
                 i+=1
                 lastSaveTime = time.time()
-            self.img0 = captureWindow(handle, convert=None, save=save)
+            self.img0 = captureWindowMSS(handle, convert=None, save=save) # 🚀 Используем новый быстрый захват
             w = int(self.img0.shape[1] *self.scale)
             h = int(self.img0.shape[0] *self.scale)
             w -= w % self.stride
