@@ -15,17 +15,25 @@ class DetectionManager:
             config: The main configuration dictionary for the bot.
         """
         self.config: Dict[str, Any] = config
+        # Check if models are ONNX format BEFORE initialization
+        self.is_candy_onnx = config['weights']['candy'].lower().endswith('.onnx')
+        self.is_player_onnx = config['weights'].get('player', '').lower().endswith('.onnx')
+        
         self.device: torch.device = self._initialize_device()
         self.model: YOLO
         self.player_model: Optional[YOLO]
         self.player_class_ids: Optional[set]
         self.player_class_labels: List[str]
+        
+        # Check ONNX CUDA support and adjust device if needed
+        self.onnx_cuda_supported = self._check_onnx_cuda_support()
+        if not self.onnx_cuda_supported and self.device.type == 'cuda':
+            print("INFO: ONNX CUDA not supported, using CPU for ONNX models")
+            
         self.model, self.player_model, self.player_class_ids, self.player_class_labels = self._initialize_models(
             config['weights']['candy'], config['weights'].get('player')
         )
-        # Check if models are ONNX format
-        self.is_candy_onnx = config['weights']['candy'].lower().endswith('.onnx')
-        self.is_player_onnx = config['weights'].get('player', '').lower().endswith('.onnx')
+        
         # For ONNX models, we don't use half precision as they're already optimized
         # Also, ONNX Runtime may not support CUDA, so we'll fallback to CPU
         self.use_half: bool = self.device.type == 'cuda' and self.config['predator_mode']['use_fp16'] and not self.is_candy_onnx
@@ -49,6 +57,41 @@ class DetectionManager:
             device = torch.device("cpu")
             print("INFO: Device set to CPU")
         return device
+    
+    def _check_onnx_cuda_support(self) -> bool:
+        """
+        Checks if CUDA is properly supported for ONNX Runtime.
+        User doesn't want CPU fallback, so we return False if CUDA won't work.
+        
+        Returns:
+            True if CUDA works with ONNX, False otherwise.
+        """
+        # Check if we're using ONNX models at all
+        if not (self.is_candy_onnx or self.is_player_onnx):
+            return True  # Not using ONNX, no need to check
+        
+        # If device is CPU, don't bother checking CUDA
+        if self.device.type != 'cuda':
+            return False
+        
+        try:
+            import onnxruntime as ort
+            # Try to get CUDA execution provider info
+            available_providers = ort.get_available_providers()
+            print(f"INFO: Available ONNX providers: {available_providers}")
+            
+            if 'CUDAExecutionProvider' in available_providers:
+                # User wants GPU, so we need to try CUDA even if it might fail
+                # The error messages will help diagnose the issue
+                print("INFO: Attempting to use CUDA for ONNX models (user preference: no CPU fallback)")
+                return True
+            else:
+                print("ERROR: CUDAExecutionProvider not available for ONNX models!")
+                print("ERROR: Cannot use ONNX models without CUDA (CPU fallback disabled by user)")
+                return False
+        except Exception as e:
+            print(f"ERROR: Could not check ONNX CUDA support: {e}")
+            return False
 
     def _initialize_models(self, weights_path: str, player_weights_path: Optional[str]) -> Tuple[YOLO, Optional[YOLO], Optional[set], List[str]]:
         """
@@ -148,9 +191,9 @@ class DetectionManager:
         if not self.player_model:
             return [], None
         
-        # For ONNX models, try to use CUDA if available
+        # For ONNX models, use CUDA only if properly supported
         if self.is_player_onnx:
-            device_arg = 0 if self.device.type == 'cuda' else 'cpu'
+            device_arg = 0 if (self.device.type == 'cuda' and self.onnx_cuda_supported) else 'cpu'
             use_half = False  # ONNX models are already optimized
         else:
             device_arg = 0 if self.device.type == 'cuda' else 'cpu'
@@ -205,9 +248,9 @@ class DetectionManager:
                 'conf': detect_cfg['heavy_conf_floor']
             })
         
-        # For ONNX models, try to use CUDA if available
+        # For ONNX models, use CUDA only if properly supported
         if self.is_candy_onnx:
-            device_arg = 0 if self.device.type == 'cuda' else 'cpu'
+            device_arg = 0 if (self.device.type == 'cuda' and self.onnx_cuda_supported) else 'cpu'
             use_half = False  # ONNX models are already optimized
         else:
             device_arg = 0 if self.device.type == 'cuda' else 'cpu'
